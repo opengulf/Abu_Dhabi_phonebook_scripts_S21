@@ -1,19 +1,20 @@
-#! /usr/bin/env python 
+#! /usr/bin/env python
 
 import argparse
 
+
 def process_image(args):
-    
+
     import os
     from scipy.ndimage.filters import rank_filter
     import numpy as np
     from PIL import Image, ImageEnhance, ImageFilter, ImageDraw
-    #import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
     import cv2
-    
+
     path = args.input
     out_path = args.output
-    
+
     def deskew(im, save_directory, direct, max_skew=10):
         if direct == "Y":
             height, width = im.shape[:2]
@@ -29,13 +30,15 @@ def process_image(args):
 
             # print("De-noise ok.")
             # Create an inverted B&W copy using Otsu (automatic) thresholding
-            im_bw = cv2.threshold(im_gs, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+            im_bw = cv2.threshold(
+                im_gs, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
             # print("Otsu ok.")
 
             # Detect lines in this image. Parameters here mostly arrived at by trial and error.
             # If the initial threshold is too high, then settle for a lower threshold value
             try:
-                lines = cv2.HoughLinesP(im_bw, 1, np.pi / 180, 200, minLineLength=width / 12, maxLineGap=width / 150)
+                lines = cv2.HoughLinesP(
+                    im_bw, 1, np.pi / 180, 200, minLineLength=width / 12, maxLineGap=width / 150)
                 # Collect the angles of these lines (in radians)
                 angles = []
                 for line in lines:
@@ -44,7 +47,8 @@ def process_image(args):
                     print(np.rad2deg(geom))
                     angles.append(geom)
             except:
-                lines = cv2.HoughLinesP(im_bw, 1, np.pi / 180, 150, minLineLength=width / 12, maxLineGap=width / 150)
+                lines = cv2.HoughLinesP(
+                    im_bw, 1, np.pi / 180, 150, minLineLength=width / 12, maxLineGap=width / 150)
                 # Collect the angles of these lines (in radians)
                 angles = []
                 for line in lines:
@@ -53,11 +57,13 @@ def process_image(args):
                     print(np.rad2deg(geom))
                     angles.append(geom)
 
-            angles = [angle for angle in angles if abs(angle) < np.deg2rad(max_skew)]
+            angles = [angle for angle in angles if abs(
+                angle) < np.deg2rad(max_skew)]
 
             if len(angles) < 5:
                 # Insufficient data to deskew
-                print("Insufficient data to deskew. Cropped image might already be straight. Cropped image saved.")
+                print(
+                    "Insufficient data to deskew. Cropped image might already be straight. Cropped image saved.")
                 cv2.imwrite(img=im,
                             filename=save_directory + cropped_jpeg_list[pg_count])
                 #im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
@@ -71,18 +77,20 @@ def process_image(args):
                 angle_deg = np.rad2deg(np.median(angles))
 
                 # Rotate the image by the residual offset
-                M = cv2.getRotationMatrix2D((width / 2, height / 2), angle_deg, 1)
-                im = cv2.warpAffine(im, M, (width, height), borderMode=cv2.BORDER_REPLICATE)
+                M = cv2.getRotationMatrix2D(
+                    (width / 2, height / 2), angle_deg, 1)
+                im = cv2.warpAffine(im, M, (width, height),
+                                    borderMode=cv2.BORDER_REPLICATE)
 
                 # Plot if a full run
                 # Always save deskewed image
                 if args.type == "full":
-                    plt.subplot(111),plt.imshow(im)
+                    plt.subplot(111), plt.imshow(im)
                     plt.title('Deskewed Image'), plt.xticks([]), plt.yticks([])
                     plt.show()
                 cropped_jpeg = cropped_jpeg_list[pg_count]
-                cv2.imwrite(img = im,
-                            filename = save_directory + cropped_jpeg[:-5] + "_rotated.jpeg")
+                cv2.imwrite(img=im,
+                            filename=save_directory + cropped_jpeg[:-5] + "_rotated.jpeg")
                 print("Only de-skewed cropped image saved.")
                 return im
         else:
@@ -95,12 +103,14 @@ def process_image(args):
             im_gs = cv2.fastNlMeansDenoising(im_gs, h=3)
 
             # Create an inverted B&W copy using Otsu (automatic) thresholding
-            im_bw = cv2.threshold(im_gs, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+            im_bw = cv2.threshold(
+                im_gs, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
 
             # Detect lines in this image. Parameters here mostly arrived at by trial and error.
             # If the initial threshold is too high, then settle for a lower threshold value
             try:
-                lines = cv2.HoughLinesP(im_bw, 1, np.pi / 180, 200, minLineLength=width / 12, maxLineGap=width / 150)
+                lines = cv2.HoughLinesP(
+                    im_bw, 1, np.pi / 180, 200, minLineLength=width / 12, maxLineGap=width / 150)
                 # Collect the angles of these lines (in radians)
                 angles = []
                 for line in lines:
@@ -109,7 +119,8 @@ def process_image(args):
                     print(np.rad2deg(geom))
                     angles.append(geom)
             except TypeError:
-                lines = cv2.HoughLinesP(im_bw, 1, np.pi / 180, 150, minLineLength=width / 12, maxLineGap=width / 150)
+                lines = cv2.HoughLinesP(
+                    im_bw, 1, np.pi / 180, 150, minLineLength=width / 12, maxLineGap=width / 150)
                 # Collect the angles of these lines (in radians)
                 angles = []
                 for line in lines:
@@ -118,14 +129,17 @@ def process_image(args):
                     print(np.rad2deg(geom))
                     angles.append(geom)
             except:
-                print ("TypeError encountered with HoughLines. Check cropped image output. Only cropped image saved.")
+                print(
+                    "TypeError encountered with HoughLines. Check cropped image output. Only cropped image saved.")
                 return
 
-            angles = [angle for angle in angles if abs(angle) < np.deg2rad(max_skew)]
+            angles = [angle for angle in angles if abs(
+                angle) < np.deg2rad(max_skew)]
 
             if len(angles) < 5:
                 # Insufficient data to deskew
-                print("Insufficient data to deskew. Cropped image might already be straight.")
+                print(
+                    "Insufficient data to deskew. Cropped image might already be straight.")
                 return im
 
             else:
@@ -134,8 +148,10 @@ def process_image(args):
                 angle_deg = np.rad2deg(np.median(angles))
 
                 # Rotate the image by the residual offset
-                M = cv2.getRotationMatrix2D((width / 2, height / 2), angle_deg, 1)
-                im = cv2.warpAffine(im, M, (width, height), borderMode=cv2.BORDER_REPLICATE)
+                M = cv2.getRotationMatrix2D(
+                    (width / 2, height / 2), angle_deg, 1)
+                im = cv2.warpAffine(im, M, (width, height),
+                                    borderMode=cv2.BORDER_REPLICATE)
 
                 # Plot if a full run
                 # Always save deskewed image
@@ -149,18 +165,19 @@ def process_image(args):
                 print("Rotated cropped image saved")
                 return im
 
-    def dilate(ary, N, iterations): 
+    def dilate(ary, N, iterations):
         """Dilate using an NxN '+' sign shape. ary is np.uint8."""
-        kernel = np.zeros((N,N), dtype=np.uint8)
-        kernel[(N-1)//2,:] = 1
+        kernel = np.zeros((N, N), dtype=np.uint8)
+        kernel[(N-1)//2, :] = 1
         dilated_image = cv2.dilate(ary / 255, kernel, iterations=iterations)
 
-        kernel = np.zeros((N,N), dtype=np.uint8)
-        kernel[:,(N-1)//2] = 1
-        dilated_image = cv2.dilate(dilated_image, kernel, iterations=iterations)
+        kernel = np.zeros((N, N), dtype=np.uint8)
+        kernel[:, (N-1)//2] = 1
+        dilated_image = cv2.dilate(
+            dilated_image, kernel, iterations=iterations)
 
         if args.type == "full":
-            plt.subplot(111),plt.imshow(dilated_image,cmap = 'gray')
+            plt.subplot(111), plt.imshow(dilated_image, cmap='gray')
             plt.title('Dilated Image'), plt.xticks([]), plt.yticks([])
             plt.show()
 
@@ -180,11 +197,12 @@ def process_image(args):
     #         print(dilated_image.dtype)
             dilated_image = cv2.convertScaleAbs(dilated_image)
     #         print(dilated_image.dtype)
-            contours, hierarchy = cv2.findContours(dilated_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            contours, hierarchy = cv2.findContours(
+                dilated_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             count = len(contours)
             print(count)
-        #print dilation
-        #Image.fromarray(edges).show()
+        # print dilation
+        # Image.fromarray(edges).show()
         #Image.fromarray(255 * dilated_image).show()
         return contours
 
@@ -192,7 +210,7 @@ def process_image(args):
         """Calculate bounding box & the number of set pixels for each contour."""
         c_info = []
         for c in contours:
-            x,y,w,h = cv2.boundingRect(c)
+            x, y, w, h = cv2.boundingRect(c)
             c_im = np.zeros(ary.shape)
             cv2.drawContours(c_im, [c], 0, 255, -1)
             c_info.append({
@@ -210,31 +228,26 @@ def process_image(args):
         x12, y12, x22, y22 = crop2
         return min(x11, x12), min(y11, y12), max(x21, x22), max(y21, y22)
 
-
     def intersect_crops(crop1, crop2):
         x11, y11, x21, y21 = crop1
         x12, y12, x22, y22 = crop2
         return max(x11, x12), max(y11, y12), min(x21, x22), min(y21, y22)
 
-
     def crop_area(crop):
         x1, y1, x2, y2 = crop
         return max(0, x2 - x1) * max(0, y2 - y1)
-
 
     def find_border_components(contours, ary):
         borders = []
         area = ary.shape[0] * ary.shape[1]
         for i, c in enumerate(contours):
-            x,y,w,h = cv2.boundingRect(c)
+            x, y, w, h = cv2.boundingRect(c)
             if w * h > 0.5 * area:
                 borders.append((i, x, y, x + w - 1, y + h - 1))
         return borders
 
-
     def angle_from_right(deg):
         return min(deg % 90, 90 - (deg % 90))
-
 
     def remove_border(contour, ary):
         """Remove everything outside a border contour."""
@@ -276,7 +289,7 @@ def process_image(args):
             recall = 1.0 * covered_sum / total
             prec = 1 - 1.0 * crop_area(crop) / area
             f1 = 2 * (prec * recall / (prec + recall))
-            #print '----'
+            # print '----'
             for i, c in enumerate(c_info):
                 this_crop = c['x1'], c['y1'], c['x2'], c['y2']
                 new_crop = union_crops(crop, this_crop)
@@ -291,10 +304,11 @@ def process_image(args):
                 remaining_frac = c['sum'] / (total - covered_sum)
                 new_area_frac = 1.0 * crop_area(new_crop) / crop_area(crop) - 1
                 if new_f1 > f1 or (remaining_frac > 0.25 and new_area_frac < 0.15):
-                    print ('%d %s -> %s / %s (%s), %s -> %s / %s (%s), %s -> %s' % (
-                            i, covered_sum, new_sum, total, remaining_frac,
-                            crop_area(crop), crop_area(new_crop), area, new_area_frac,
-                            f1, new_f1))
+                    print('%d %s -> %s / %s (%s), %s -> %s / %s (%s), %s -> %s' % (
+                        i, covered_sum, new_sum, total, remaining_frac,
+                        crop_area(crop), crop_area(
+                            new_crop), area, new_area_frac,
+                        f1, new_f1))
                     crop = new_crop
                     covered_sum = new_sum
                     del c_info[i]
@@ -314,7 +328,8 @@ def process_image(args):
         bx1, by1, bx2, by2 = 0, 0, edges.shape[0], edges.shape[1]
         if border_contour is not None and len(border_contour) > 0:
             c = props_for_contours([border_contour], edges)[0]
-            bx1, by1, bx2, by2 = c['x1'] + 5, c['y1'] + 5, c['x2'] - 5, c['y2'] - 5
+            bx1, by1, bx2, by2 = c['x1'] + \
+                5, c['y1'] + 5, c['x2'] - 5, c['y2'] - 5
 
         def crop_in_border(crop):
             x1, y1, x2, y2 = crop
@@ -334,7 +349,7 @@ def process_image(args):
             int_area = crop_area(intersect_crops(crop, this_crop))
             new_crop = crop_in_border(union_crops(crop, this_crop))
             if 0 < int_area < this_area and crop != new_crop:
-                print ('%s -> %s' % (str(crop), str(new_crop)))
+                print('%s -> %s' % (str(crop), str(new_crop)))
                 changed = True
                 crop = new_crop
 
@@ -362,7 +377,7 @@ def process_image(args):
     for file in os.listdir(path):
         uncropped_jpeg_temp = ""
         cropped_jpeg_temp = ""
-        if file.endswith('.jpeg'):
+        if file.endswith(('.jpeg', '.png')):
             uncropped_jpeg_temp = "/" + file
             # print (uncropped_jpeg)
             cropped_jpeg_temp = uncropped_jpeg_temp[:-5] + "_cropped.jpeg"
@@ -384,13 +399,14 @@ def process_image(args):
         edges = cv2.Canny(img, 100, 400)
 
         if args.type == "full":
-            plt.subplot(111),plt.imshow(edges,cmap = 'gray')
+            plt.subplot(111), plt.imshow(edges, cmap='gray')
             plt.title('Edge Image'), plt.xticks([]), plt.yticks([])
 
             plt.show()
 
         # TODO: dilate image _before_ finding a border. This is crazy sensitive!
-        contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(
+            edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         borders = find_border_components(contours, edges)
         borders.sort(key=lambda i, x1, y1, x2, y2: (x2 - x1) * (y2 - y1))
 
@@ -409,13 +425,14 @@ def process_image(args):
 
         contours = find_components(edges)
         if len(contours) == 0:
-    #        print '%s -> (no text!)' % path
+            #        print '%s -> (no text!)' % path
             return
 
         crop = find_optimal_components_subset(contours, edges)
         crop = pad_crop(crop, contours, edges, border_contour)
 
-        crop = [int(x / scale) for x in crop]  # upscale to the original image size.
+        # upscale to the original image size.
+        crop = [int(x / scale) for x in crop]
         draw = ImageDraw.Draw(im)
         c_info = props_for_contours(contours, edges)
         for c in c_info:
@@ -433,7 +450,8 @@ def process_image(args):
         w_cropped, h_cropped = text_im.size
         if w_cropped < w_original_half:
             text_im = orig_im
-            print ("More than half the page was cropped width-wise. Defaulting to original uncropped image.")
+            print(
+                "More than half the page was cropped width-wise. Defaulting to original uncropped image.")
         # Converting to np array to calculate number of channels in jpg. Some directories are single channel jpgs
         open_cv_image = np.array(text_im)
         if open_cv_image.ndim == 2:
@@ -443,9 +461,9 @@ def process_image(args):
         print(channels)
 
     #    try:
-            # print(type(text_im))
+        # print(type(text_im))
     #    except:
-            # print("")
+        # print("")
     #    text_im.save(out_path + cropped_jpeg_list[pg_count])
     #    print '%s -> %s' % (path, out_path)
 
@@ -473,13 +491,18 @@ def process_image(args):
 
 
 def main():
-    parser=argparse.ArgumentParser(description="Read a scanned street directory image, crop, and deskew.")
-    parser.add_argument("-type", help="Select a type of image process, full or minimal", dest="type", type=str, required=True)
-    parser.add_argument("-in", help = "Input file directory", dest="input", type=str, required=True)
-    parser.add_argument("-out",help="Output file directory" ,dest="output", type=str, required=True)
+    parser = argparse.ArgumentParser(
+        description="Read a scanned street directory image, crop, and deskew.")
+    parser.add_argument("-type", help="Select a type of image process, full or minimal",
+                        dest="type", type=str, required=True)
+    parser.add_argument("-in", help="Input file directory",
+                        dest="input", type=str, required=True)
+    parser.add_argument("-out", help="Output file directory",
+                        dest="output", type=str, required=True)
     parser.set_defaults(func=process_image)
-    args=parser.parse_args()
+    args = parser.parse_args()
     args.func(args)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()
