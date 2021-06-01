@@ -11,6 +11,7 @@ def process_image(args):
     from PIL import Image, ImageEnhance, ImageFilter, ImageDraw
     import matplotlib.pyplot as plt
     import cv2
+    from sklearn.cluster import KMeans
 
     path = args.input
     out_path = args.output
@@ -18,8 +19,8 @@ def process_image(args):
     def deskew(im, save_directory, direct, max_skew=10):
         if direct == "Y":
             height, width = im.shape[:2]
-            print(height)
-            print(width)
+            # print(height)
+            # print(width)
 
             # Create a grayscale image and denoise it
             if channels != 0:
@@ -44,7 +45,7 @@ def process_image(args):
                 for line in lines:
                     x1, y1, x2, y2 = line[0]
                     geom = np.arctan2(y2 - y1, x2 - x1)
-                    print(np.rad2deg(geom))
+                    # print(np.rad2deg(geom))
                     angles.append(geom)
             except:
                 lines = cv2.HoughLinesP(
@@ -54,7 +55,7 @@ def process_image(args):
                 for line in lines:
                     x1, y1, x2, y2 = line[0]
                     geom = np.arctan2(y2 - y1, x2 - x1)
-                    print(np.rad2deg(geom))
+                    # print(np.rad2deg(geom))
                     angles.append(geom)
 
             angles = [angle for angle in angles if abs(
@@ -274,9 +275,16 @@ def process_image(args):
         Returns an (x1, y1, x2, y2) tuple.
         """
         c_info = props_for_contours(contours, edges)
-        c_info.sort(key=lambda x: -x['sum'])
+        # c_info.sort(key=lambda x: -x['sum'])
         total = np.sum(edges) / 255
         area = edges.shape[0] * edges.shape[1]
+
+# Sorting crops downwards by area.
+        c_info.sort(key=lambda cr: crop_area(
+            (cr['x1'], cr['y1'], cr['x2'], cr['y2'])), reverse=True)
+
+# Getting biggest n crops.
+        c_info = c_info[:args.n]
 
         c = c_info[0]
         del c_info[0]
@@ -342,6 +350,12 @@ def process_image(args):
         crop = crop_in_border(crop)
 
         c_info = props_for_contours(contours, edges)
+
+        c_info.sort(key=lambda cr: crop_area(
+            (cr['x1'], cr['y1'], cr['x2'], cr['y2'])), reverse=True)
+
+        c_info = c_info[:args.n]
+
         changed = False
         for c in c_info:
             this_crop = c['x1'], c['y1'], c['x2'], c['y2']
@@ -374,16 +388,24 @@ def process_image(args):
     # Then, it will loop through every single one of them
     uncropped_jpeg_list = []
     cropped_jpeg_list = []
-    for file in os.listdir(path):
-        uncropped_jpeg_temp = ""
-        cropped_jpeg_temp = ""
-        if file.endswith(('.jpeg', '.png')):
-            uncropped_jpeg_temp = "/" + file
-            # print (uncropped_jpeg)
-            cropped_jpeg_temp = uncropped_jpeg_temp[:-5] + "_cropped.jpeg"
-            uncropped_jpeg_list.append(uncropped_jpeg_temp)
-            cropped_jpeg_list.append(cropped_jpeg_temp)
-            # print(cropped_jpeg)
+    if os.path.isfile(path) and path.endswith(('.jpeg', '.png')):
+        uncropped_jpeg_list.append(("/" + os.path.basename(path)))
+        cropped_jpeg_list.append(
+            ("/" + os.path.splitext(os.path.basename(path))[0] + "_cropped.jpeg"))
+        print(uncropped_jpeg_list)
+        print(cropped_jpeg_list)
+        path = os.path.dirname(path)
+    else:
+        for file in os.listdir(path):
+            uncropped_jpeg_temp = ""
+            cropped_jpeg_temp = ""
+            if file.endswith(('.jpeg', '.png')):
+                uncropped_jpeg_temp = "/" + file
+                # print (uncropped_jpeg)
+                cropped_jpeg_temp = os.path.splitext(file)[0] + "_cropped.jpeg"
+                uncropped_jpeg_list.append(uncropped_jpeg_temp)
+                cropped_jpeg_list.append(cropped_jpeg_temp)
+                # print(cropped_jpeg)
 
     pg_count = 0
     for uncropped_jpeg in uncropped_jpeg_list:
@@ -429,20 +451,76 @@ def process_image(args):
             return
 
         crop = find_optimal_components_subset(contours, edges)
+
+        print("Optimal Crop: ")
+        print(crop)
+
         crop = pad_crop(crop, contours, edges, border_contour)
 
+        print("Pad Crop: ")
+        print(crop)
+
         # upscale to the original image size.
+        downsized_crop = crop
+
         crop = [int(x / scale) for x in crop]
+        print("Upscaled Crop: ")
+        print(crop)
         draw = ImageDraw.Draw(im)
         c_info = props_for_contours(contours, edges)
-        for c in c_info:
+        c_info.sort(key=lambda cr: crop_area(
+            (cr['x1'], cr['y1'], cr['x2'], cr['y2'])))
+
+        c_info = c_info[-args.n:]
+        c_info_clean = c_info.copy()
+        centers = []
+        print(c_info)
+
+        for i in range(len(c_info)):
+            c = c_info[i]
+            # If height is bigger than width
+            if c['x2'] - c['x1'] > c['y2'] - c['y1']:
+                c_info_clean.remove(c)
+                print("Removing: " + str(c))
+            else:
+                center = ((c['x1'] + c['x2']) / 2)
+                print(str(center) + " -> " + str(c))
+                centers.append(center)
+
+        # centers.reshape(-1, 1)
+        centers_np = np.array(centers)
+        print(centers_np)
+    
+        kmeans = KMeans(n_clusters=4, random_state=0).fit(centers_np.reshape(-1,1))
+        print(kmeans.labels_)
+
+        print(c_info_clean)
+
+        colors = ['blue', 'green', 'yellow', 'brown']
+
+        columns = [None] * 4
+
+        for i, c in enumerate(c_info_clean):
             this_crop = c['x1'], c['y1'], c['x2'], c['y2']
-            draw.rectangle(this_crop, outline='blue')
-        draw.rectangle(crop, outline='red')
+            col = kmeans.labels_[i]
+
+            # if c['x2'] - c['x1'] < c['y2'] - c['y1']:
+            print(c)
+            draw.rectangle(this_crop, outline=colors[col])
+
+            if columns[col] is None:
+                columns[col] = this_crop
+            else:
+                columns[col] = union_crops(columns[col],this_crop)
+        
+        for col in columns:
+            draw.rectangle(col, outline='purple', width=3)
+
+        draw.rectangle(downsized_crop, outline='red')
     #   im.save(out_path + cropped_jpeg_list[pg_count])
         draw.text((50, 50), path, fill='red')
     #   orig_im.save(out_path + cropped_jpeg_list[pg_count])
-        if args.type == "full":
+        if args.type == "full" or args.type == "border":
             im.show()
         text_im = orig_im.crop(crop)
         w_original, h_original = orig_im.size
@@ -499,6 +577,8 @@ def main():
                         dest="input", type=str, required=True)
     parser.add_argument("-out", help="Output file directory",
                         dest="output", type=str, required=True)
+    parser.add_argument("-n", help="Number of sampled boxes.",
+                        dest="n", type=int, required=True, default=10)
     parser.set_defaults(func=process_image)
     args = parser.parse_args()
     args.func(args)
