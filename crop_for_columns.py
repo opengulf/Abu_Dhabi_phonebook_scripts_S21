@@ -390,8 +390,8 @@ def process_image(args):
     cropped_jpeg_list = []
     if os.path.isfile(path) and path.endswith(('.jpeg', '.png')):
         uncropped_jpeg_list.append(("/" + os.path.basename(path)))
-        cropped_jpeg_list.append(
-            ("/" + os.path.splitext(os.path.basename(path))[0] + "_cropped.jpeg"))
+        cropped_jpeg_temp = "/" + os.path.splitext(os.path.basename(path))[0] + "_cropped"
+        cropped_jpeg_list.append(cropped_jpeg_temp)
         print(uncropped_jpeg_list)
         print(cropped_jpeg_list)
         path = os.path.dirname(path)
@@ -402,10 +402,11 @@ def process_image(args):
             if file.endswith(('.jpeg', '.png')):
                 uncropped_jpeg_temp = "/" + file
                 # print (uncropped_jpeg)
-                cropped_jpeg_temp = os.path.splitext(file)[0] + "_cropped.jpeg"
+                cropped_jpeg_temp = os.path.splitext(file)[0] + "_cropped"
                 uncropped_jpeg_list.append(uncropped_jpeg_temp)
                 cropped_jpeg_list.append(cropped_jpeg_temp)
                 # print(cropped_jpeg)
+
 
     pg_count = 0
     for uncropped_jpeg in uncropped_jpeg_list:
@@ -522,21 +523,31 @@ def process_image(args):
     #   orig_im.save(out_path + cropped_jpeg_list[pg_count])
         if args.type == "full" or args.type == "border":
             im.show()
-        text_im = orig_im.crop(crop)
-        w_original, h_original = orig_im.size
-        w_original_half = w_original/2
-        w_cropped, h_cropped = text_im.size
-        if w_cropped < w_original_half:
-            text_im = orig_im
-            print(
-                "More than half the page was cropped width-wise. Defaulting to original uncropped image.")
+
+        
+        for i, col in enumerate(columns):
+            upsized_crop = [int(x / scale) for x in col]
+
+            text_im = orig_im.crop(upsized_crop)
+            text_im.save(out_path + cropped_jpeg_list[pg_count] + "-c" + str(i) + os.path.splitext(uncropped_jpeg_list[pg_count])[1])
+        
+        pg_count += 1
+
+        # w_original, h_original = orig_im.size
+        # w_original_half = w_original/2
+        # w_cropped, h_cropped = text_im.size
+        # if w_cropped < w_original_half:
+        #     text_im = orig_im
+        #     print(
+        #         "More than half the page was cropped width-wise. Defaulting to original uncropped image.")
         # Converting to np array to calculate number of channels in jpg. Some directories are single channel jpgs
-        open_cv_image = np.array(text_im)
-        if open_cv_image.ndim == 2:
-            channels = 0
-        else:
-            channels = open_cv_image.shape[2]
-        print(channels)
+        
+        # open_cv_image = np.array(text_im)
+        # if open_cv_image.ndim == 2:
+        #     channels = 0
+        # else:
+        #     channels = open_cv_image.shape[2]
+        # print(channels)
 
     #    try:
         # print(type(text_im))
@@ -546,26 +557,29 @@ def process_image(args):
     #    print '%s -> %s' % (path, out_path)
 
         # Deskew image
-        direct_wo_saving = ""
-        try:
-            direct_wo_saving = "Y"
-            # Convert RGB to BGR
-            if channels != 0:
-                open_cv_image = open_cv_image[:, :, ::-1].copy()
-            deskewed_image = deskew(im=open_cv_image,
-                                    save_directory=out_path,
-                                    direct=direct_wo_saving)
-            pg_count += 1
-            print("Pg " + str(pg_count) + " de-skew complete")
-        except:
-            direct_wo_saving = "N"
-            text_im.save(out_path + cropped_jpeg_list[pg_count])
-            cropped_image = cv2.imread(out_path + cropped_jpeg_list[pg_count])
-            print("Cropped image saved to, and read from file")
-            deskewed_image = deskew(im=cropped_image,
-                                    save_directory=out_path,
-                                    direct=direct_wo_saving)
-            pg_count += 1
+        
+        
+
+        # direct_wo_saving = ""
+        # try:
+        #     direct_wo_saving = "Y"
+        #     # Convert RGB to BGR
+        #     if channels != 0:
+        #         open_cv_image = open_cv_image[:, :, ::-1].copy()
+        #     deskewed_image = deskew(im=open_cv_image,
+        #                             save_directory=out_path,
+        #                             direct=direct_wo_saving)
+        #     pg_count += 1
+        #     print("Pg " + str(pg_count) + " de-skew complete")
+        # except:
+        #     direct_wo_saving = "N"
+        #     text_im.save(out_path + cropped_jpeg_list[pg_count])
+        #     cropped_image = cv2.imread(out_path + cropped_jpeg_list[pg_count])
+        #     print("Cropped image saved to, and read from file")
+        #     deskewed_image = deskew(im=cropped_image,
+        #                             save_directory=out_path,
+        #                             direct=direct_wo_saving)
+        #     pg_count += 1
 
 
 def main():
