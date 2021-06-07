@@ -29,11 +29,11 @@ def process_image(args):
             else:
                 im_gs = cv2.fastNlMeansDenoising(im, h=3)
 
-            # print("De-noise ok.")
+            print("De-noise ok.")
             # Create an inverted B&W copy using Otsu (automatic) thresholding
             im_bw = cv2.threshold(
                 im_gs, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-            # print("Otsu ok.")
+            print("Otsu ok.")
 
             # Detect lines in this image. Parameters here mostly arrived at by trial and error.
             # If the initial threshold is too high, then settle for a lower threshold value
@@ -259,7 +259,8 @@ def process_image(args):
         r = cv2.minAreaRect(contour)
         degs = r[2]
         if angle_from_right(degs) <= 10.0:
-            box = cv2.cv.BoxPoints(r)
+            # box = cv2.cv.BoxPoints(r)
+            box = cv2.boxPoints(r)
             box = np.int0(box)
             cv2.drawContours(c_im, [box], 0, 255, -1)
             cv2.drawContours(c_im, [box], 0, 0, 4)
@@ -384,13 +385,145 @@ def process_image(args):
         new_im = im.resize((int(a * scale), int(b * scale)), Image.ANTIALIAS)
         return scale, new_im
 
+    def find_outliers(columns):
+        col_median = np.median(columns, axis=0)
+
+        col_widths = [col[2] - col[0] for col in columns]
+        width_median = np.median(col_widths)
+        print(col_widths)
+        print(width_median)
+
+        outliers = []
+        print(col_median)
+
+        for i, col in enumerate(columns):
+            np_col = np.array(col)
+            diff = abs(col_median - np_col)
+            rates = diff / col_median
+
+            width_diff = abs(width_median - col_widths[i])
+
+            crop_outliers = list(map((lambda rate: rate > 0.1), rates))
+            crop_outliers[0] = False
+            crop_outliers[2] = False
+
+            if width_diff / width_median > 0.1:
+                print("Outlier in position: " + str(i))
+
+                # Checking right boundary against column on the right.
+                if i + 1 < len(columns):
+                    next_col = columns[i+1]
+                    if abs(next_col[0] - col[3]) / next_col[0] > 0.1:
+                        crop_outliers[3] = True
+                        print("Outlier on right boundary")
+
+                # Checking left boundary against col on left.
+                if i > 0:
+                    prev_col = columns[i-1]
+                    if abs(col[0] - prev_col[3]) / prev_col[3] > 0.1:
+                        crop_outliers[0] = True
+                        print("Outlier on left boundary")
+
+                if not crop_outliers[0] and not crop_outliers[2]:
+                    crop_outliers[0] = True
+                    crop_outliers[2] = True
+
+            # If difference is bigger than 10%
+            # if rate > 0.1:
+            #     outliers.append(True)
+            # else:
+            #     outliers.append(False)
+            outliers.append(crop_outliers)
+
+            print(rates)
+            print(crop_outliers)
+
+        return outliers
+
+    def correct_outliers(columns, outliers):
+        # print(columns)
+        columns = [list(col) for col in columns]
+        print(columns)
+        corrected_columns = columns.copy()
+
+        top_data = [col for col, outlier in zip(
+            columns, outliers) if not outlier[1]]
+
+        bottom_data = [col for col, outlier in zip(
+            columns, outliers) if not outlier[3]]
+
+        left_data = []
+        right_data = []
+
+        for i, col in enumerate(columns):
+            outlier = outliers[i]
+
+            if not outlier[0]:
+                data = [i, col[0]]
+                print(data)
+                left_data.append(data)
+
+            if not outlier[2]:
+                data = [i, col[2]]
+                print(data)
+                right_data.append(data)
+
+        # left_data = [col for col, outlier in zip(
+        #     columns, outliers) if not outlier[0]]
+
+        # right_data = [col for col, outlier in zip(
+        #     columns, outliers) if not outlier[2]]
+
+        m1, b1 = np.polyfit([i[0] for i in top_data], [i[1]
+                            for i in top_data], 1)
+
+        m3, b3 = np.polyfit([i[2] for i in bottom_data], [i[3]
+                            for i in bottom_data], 1)
+
+        m0, b0 = np.polyfit([i[0] for i in left_data], [i[1]
+                            for i in left_data], 1)
+
+        m2, b2 = np.polyfit([i[0] for i in right_data], [i[1]
+                            for i in right_data], 1)
+
+        print(f"The equation of 0 is f(x)={m0}(x) + {b0}")
+        print(left_data)
+
+        print(f"The equation of 1 is f(x)={m1}(x) + {b1}")
+        print(top_data)
+
+        print(f"The equation of 2 is f(x)={m2}(x) + {b2}")
+        print(right_data)
+
+        for i, outlier in enumerate(outliers):
+            col = columns[i]
+
+            if outlier[1]:
+                col[1] = m1 * col[0] + b1
+
+            if outlier[3]:
+                col[3] = m3 * col[2] + b3
+
+            if outlier[0]:
+                col[0] = m0 * i + b0
+
+        # for col, outlier in list(zip(columns, outliers)):
+        #     if outlier[1]:
+        #         col[1] = m1 * col[0] + b1
+
+        #     if outlier[3]:
+        #         col[3] = m2 * col[2] + b2
+
+        return columns
+
     # Creates an empty list that takes on the filename of each jpeg in the directory
     # Then, it will loop through every single one of them
     uncropped_jpeg_list = []
     cropped_jpeg_list = []
     if os.path.isfile(path) and path.endswith(('.jpeg', '.png')):
         uncropped_jpeg_list.append(("/" + os.path.basename(path)))
-        cropped_jpeg_temp = "/" + os.path.splitext(os.path.basename(path))[0] + "_cropped"
+        cropped_jpeg_temp = "/" + \
+            os.path.splitext(os.path.basename(path))[0] + "_cropped"
         cropped_jpeg_list.append(cropped_jpeg_temp)
         print(uncropped_jpeg_list)
         print(cropped_jpeg_list)
@@ -407,9 +540,11 @@ def process_image(args):
                 cropped_jpeg_list.append(cropped_jpeg_temp)
                 # print(cropped_jpeg)
 
-
     pg_count = 0
     for uncropped_jpeg in uncropped_jpeg_list:
+        print("Processing: " + uncropped_jpeg)
+        print("-------------------------------")
+
         orig_im = Image.open(path + uncropped_jpeg)
         scale, im = downscale_image(orig_im)
 
@@ -431,8 +566,9 @@ def process_image(args):
         contours, hierarchy = cv2.findContours(
             edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         borders = find_border_components(contours, edges)
-        borders.sort(key=lambda i, x1, y1, x2, y2: (x2 - x1) * (y2 - y1))
-
+        print(borders)
+        if len(borders) > 1:
+            borders.sort(key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
         border_contour = None
         if len(borders):
             border_contour = contours[borders[0][0]]
@@ -451,32 +587,35 @@ def process_image(args):
             #        print '%s -> (no text!)' % path
             return
 
-        crop = find_optimal_components_subset(contours, edges)
+        # crop = find_optimal_components_subset(contours, edges)
 
-        print("Optimal Crop: ")
-        print(crop)
+        # print("Optimal Crop: ")
+        # print(crop)
 
-        crop = pad_crop(crop, contours, edges, border_contour)
+        # crop = pad_crop(crop, contours, edges, border_contour)
 
-        print("Pad Crop: ")
-        print(crop)
+        # print("Pad Crop: ")
+        # print(crop)
 
-        # upscale to the original image size.
-        downsized_crop = crop
+        # # upscale to the original image size.
+        # downsized_crop = crop
 
-        crop = [int(x / scale) for x in crop]
-        print("Upscaled Crop: ")
-        print(crop)
-        draw = ImageDraw.Draw(im)
+        # crop = [int(x / scale) for x in crop]
+        # print("Upscaled Crop: ")
+        # print(crop)
+
         c_info = props_for_contours(contours, edges)
+
+        # Sorting by area descending and getting biggest n crops..
         c_info.sort(key=lambda cr: crop_area(
             (cr['x1'], cr['y1'], cr['x2'], cr['y2'])))
-
         c_info = c_info[-args.n:]
+
         c_info_clean = c_info.copy()
         centers = []
-        print(c_info)
+        # print(c_info)
 
+        # Getting x-axis midpoint to classify column.
         for i in range(len(c_info)):
             c = c_info[i]
             # If height is bigger than width
@@ -488,49 +627,66 @@ def process_image(args):
                 print(str(center) + " -> " + str(c))
                 centers.append(center)
 
-        # centers.reshape(-1, 1)
         centers_np = np.array(centers)
-        print(centers_np)
-    
-        kmeans = KMeans(n_clusters=4, random_state=0).fit(centers_np.reshape(-1,1))
+        # print(centers_np)
+
+        # Running K-means to get four different columns.
+        kmeans = KMeans(n_clusters=4, random_state=0).fit(
+            centers_np.reshape(-1, 1))
         print(kmeans.labels_)
 
-        print(c_info_clean)
+        # print(c_info_clean)
 
         colors = ['blue', 'green', 'yellow', 'brown']
 
         columns = [None] * 4
 
+        draw = ImageDraw.Draw(im)
+
+        # Drawing crops and aggregating crops per column.
         for i, c in enumerate(c_info_clean):
             this_crop = c['x1'], c['y1'], c['x2'], c['y2']
             col = kmeans.labels_[i]
 
-            # if c['x2'] - c['x1'] < c['y2'] - c['y1']:
-            print(c)
-            draw.rectangle(this_crop, outline=colors[col])
+            draw.rectangle(this_crop, outline=colors[col], width=2)
 
             if columns[col] is None:
                 columns[col] = this_crop
             else:
-                columns[col] = union_crops(columns[col],this_crop)
-        
-        for col in columns:
-            draw.rectangle(col, outline='purple', width=3)
+                columns[col] = union_crops(columns[col], this_crop)
 
-        draw.rectangle(downsized_crop, outline='red')
+        # draw.rectangle(downsized_crop, outline='red')
     #   im.save(out_path + cropped_jpeg_list[pg_count])
-        draw.text((50, 50), path, fill='red')
+        # draw.text((50, 50), path, fill='red')
     #   orig_im.save(out_path + cropped_jpeg_list[pg_count])
+
+        columns.sort(key=lambda col: col[0])
+
+        outliers = find_outliers(columns)
+
+        try:
+            corrected_columns = correct_outliers(columns, outliers)
+        except TypeError:
+            print("Error in outlier detection. Too much variance.")
+            print("Review file: " + uncropped_jpeg_list[pg_count])
+
+        print(corrected_columns)
+
+        # Drawing final columns.
         if args.type == "full" or args.type == "border":
+            for col in corrected_columns:
+                draw.rectangle(col, outline='purple', width=3)
+                print(col)
             im.show()
 
-        
-        for i, col in enumerate(columns):
+        # Saving columns.
+        for i, col in enumerate(corrected_columns):
             upsized_crop = [int(x / scale) for x in col]
-
             text_im = orig_im.crop(upsized_crop)
-            text_im.save(out_path + cropped_jpeg_list[pg_count] + "-c" + str(i) + os.path.splitext(uncropped_jpeg_list[pg_count])[1])
-        
+
+            text_im.save(out_path + cropped_jpeg_list[pg_count] + "-c" + str(
+                i) + os.path.splitext(uncropped_jpeg_list[pg_count])[1])
+
         pg_count += 1
 
         # w_original, h_original = orig_im.size
@@ -541,7 +697,7 @@ def process_image(args):
         #     print(
         #         "More than half the page was cropped width-wise. Defaulting to original uncropped image.")
         # Converting to np array to calculate number of channels in jpg. Some directories are single channel jpgs
-        
+
         # open_cv_image = np.array(text_im)
         # if open_cv_image.ndim == 2:
         #     channels = 0
@@ -557,8 +713,6 @@ def process_image(args):
     #    print '%s -> %s' % (path, out_path)
 
         # Deskew image
-        
-        
 
         # direct_wo_saving = ""
         # try:
