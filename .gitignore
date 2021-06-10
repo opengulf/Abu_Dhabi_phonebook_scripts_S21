@@ -2,3 +2,5 @@ in/*
 *.txt
 out/*
 *.hocr
+*.png
+__pycache__
