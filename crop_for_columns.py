@@ -2,15 +2,18 @@
 
 import argparse
 
+from matplotlib.pyplot import imshow
+
 
 def process_image(args):
 
     import os
-    from scipy.ndimage.filters import rank_filter
-    import numpy as np
-    from PIL import Image, ImageEnhance, ImageFilter, ImageDraw
-    import matplotlib.pyplot as plt
+
     import cv2
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
+    from scipy.ndimage.filters import rank_filter
     from sklearn.cluster import KMeans
 
     path = args.input
@@ -499,20 +502,20 @@ def process_image(args):
             col = columns[i]
 
             if outlier[1]:
-                col[1] = m1 * col[0] + b1
+                # If line is going upwards (up goes to 0)
+                if m1 < 0:
+                    col[1] = m1 * col[2] + b1
+                else:
+                    col[1] = m1 * col[0] + b1
 
             if outlier[3]:
-                col[3] = m3 * col[2] + b3
+                if m3 < 0:
+                    col[3] = m3 * col[0] + b3
+                else:
+                    col[3] = m3 * col[2] + b3
 
             if outlier[0]:
                 col[0] = m0 * i + b0
-
-        # for col, outlier in list(zip(columns, outliers)):
-        #     if outlier[1]:
-        #         col[1] = m1 * col[0] + b1
-
-        #     if outlier[3]:
-        #         col[3] = m2 * col[2] + b2
 
         return columns
 
@@ -541,10 +544,13 @@ def process_image(args):
                 # print(cropped_jpeg)
 
     pg_count = 0
+
+    # For each image
     for uncropped_jpeg in uncropped_jpeg_list:
         print("Processing: " + uncropped_jpeg)
         print("-------------------------------")
 
+        # Downscaling
         orig_im = Image.open(path + uncropped_jpeg)
         scale, im = downscale_image(orig_im)
 
@@ -565,8 +571,19 @@ def process_image(args):
         # TODO: dilate image _before_ finding a border. This is crazy sensitive!
         contours, hierarchy = cv2.findContours(
             edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        if args.type == "border":
+            print("Displaying contours")
+            # display_img = orig_im.copy()
+            img_copy = np.array(orig_im.copy())
+            cv2.drawContours(img_copy, contours, -1, (0, 255, 0), 3)
+            cv2.imshow("Contours", img_copy)
+            cv2.waitKey(0)
+
+        # Seems to find bounding boxes based on contours.
         borders = find_border_components(contours, edges)
         print(borders)
+        # Sorts by area ascending
         if len(borders) > 1:
             borders.sort(key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
         border_contour = None
@@ -604,9 +621,10 @@ def process_image(args):
         # print("Upscaled Crop: ")
         # print(crop)
 
+        # Gets crops based on contours
         c_info = props_for_contours(contours, edges)
 
-        # Sorting by area descending and getting biggest n crops..
+        # Sorting by area descending and getting biggest n crops.
         c_info.sort(key=lambda cr: crop_area(
             (cr['x1'], cr['y1'], cr['x2'], cr['y2'])))
         c_info = c_info[-args.n:]
@@ -660,6 +678,7 @@ def process_image(args):
         # draw.text((50, 50), path, fill='red')
     #   orig_im.save(out_path + cropped_jpeg_list[pg_count])
 
+        # Sort columns from left to right
         columns.sort(key=lambda col: col[0])
 
         outliers = find_outliers(columns)

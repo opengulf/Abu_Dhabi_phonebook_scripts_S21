@@ -4,3 +4,4 @@ out/*
 *.hocr
 *.png
 __pycache__
+directories/*
