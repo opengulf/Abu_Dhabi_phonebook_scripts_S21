@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import numpy as np
 import argparse
 import os
+import json
 
 import matplotlib.pyplot as plt
 import scipy.cluster.hierarchy as hcluster
@@ -24,7 +25,7 @@ def get_attribute(line, key):
     return [float(i) for i in attr_list[0].split(" ")[1:]]
 
 
-def load_hocr_lines(filepath):
+def load_hocr_lines(filepath, min_conf):
     '''Loads hocr into an array with relevant features.'''
     page_array = []
     rawhtml = BeautifulSoup(open(filepath, encoding='utf-8'), "lxml")
@@ -44,15 +45,22 @@ def load_hocr_lines(filepath):
             word_list['baseline'] = baseline
 
         elif line['class'][0] == "ocrx_word":
-            word = {'string': line.string}
-            bbox = [int(i) for i in line['title'].split(';')[0].split(' ')[1:]]
-            x_conf = int(line['title'].split(';')[1].split(' ')[-1])
+            confidence = get_attribute(line, "x_wconf")[0]
+            print(confidence)
+            if confidence > min_conf:
+                word = {'string': line.string}
+                bbox = [int(i)
+                        for i in line['title'].split(';')[0].split(' ')[1:]]
+                x_conf = int(line['title'].split(';')[1].split(' ')[-1])
 
-            word['bbox'] = bbox
-            word['x_conf'] = x_conf
-            # print(bbox)
+                word['bbox'] = bbox
+                word['x_conf'] = x_conf
+                # print(bbox)
 
-            word_list['words'].append(word)
+                word_list['words'].append(word)
+
+            else:
+                print("Word Removed: " + line.string)
 
             #     line_list.append(int(line['id'].split('_')[2]))
             #     line_list += [int(i)
@@ -86,22 +94,31 @@ def cluster_lines_NN(lines):
 
 
 # Use y values, rather than midpoint
-    left_col = np.array([col['bbox'][1] for col in columns[0]])
-    right_col = np.array([col['bbox'][1] for col in columns[1]])
+    left_col = np.array([col['bbox'][3] for col in columns[0]])
+    right_col = np.array([col['bbox'][3] for col in columns[1]])
 
     print(left_col)
     print(right_col)
 
-    nbrs = NearestNeighbors(n_neighbors=1, algorithm='ball_tree').fit(
+    nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(
         (right_col.reshape(-1, 1)))
     distances, indices = nbrs.kneighbors(left_col.reshape(-1, 1))
 
     print(indices)
 
+    clustered_lines = []
+
     for i, index in enumerate(indices):
+        cluster = []
+        cluster.append(columns[1][index[0]])
+        cluster.append(columns[0][i])
+        clustered_lines.append(cluster)
+
         print(columns[1][index[0]])
         print(columns[0][i])
         print("--------------------------------")
+
+    return clustered_lines
 
 #     X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]])
 # >>> nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(X)
@@ -149,6 +166,8 @@ def cluster_lines_hierarchical(lines):
 
 def process_hocr(args):
 
+    print("HOLA")
+
     # Gets files or file to process.
     if os.path.isdir(args.path):
         hocr_files = [file for file in os.listdir(
@@ -159,32 +178,55 @@ def process_hocr(args):
         print("No .hocr files specified.")
         exit(0)
 
+    min_conf = 20
+
     for file in hocr_files:
-        array, raw = load_hocr_lines(file)
+        full_file = os.path.join(args.path, file)
+        print(file)
+        print(args.path)
 
-        orig_im = Image.open(args.image)
-        draw = ImageDraw.Draw(orig_im)
+        array, raw = load_hocr_lines(full_file, min_conf)
 
-        for line in array:
-            bbox = line['bbox']
-            print(line['bbox'])
-            baseline = line['baseline']
-            print(baseline)
-            # draw.rectangle(bbox, outline='purple', width=3)
-            point1 = [bbox[0], bbox[3] + baseline[1]]
-            point2 = [bbox[0] + bbox[2],
-                      (bbox[2]*baseline[0] + bbox[3] + baseline[1])]
-            points = point1 + point2
-            # point1.extend(point2)
-            # points = [(0, baseline[1]), (300, 300*baseline[0] + baseline[1])]
-            print(points)
-            draw.line(points, fill="red", width=2)
-            # print(item['words'])
-            for word in line['words']:
-                print(word)
+        if args.type == "full":
 
-        orig_im.show()
-        # clustered_data = cluster_lines_NN(array)
+            orig_im = Image.open(args.image)
+            draw = ImageDraw.Draw(orig_im)
+
+            for line in array:
+                bbox = line['bbox']
+                print(line['bbox'])
+                baseline = line['baseline']
+                print(baseline)
+                # draw.rectangle(bbox, outline='purple', width=3)
+                point1 = [bbox[0], bbox[3] + baseline[1]]
+                point2 = [bbox[0] + bbox[2],
+                          (bbox[2]*baseline[0] + bbox[3] + baseline[1])]
+                points = point1 + point2
+                # point1.extend(point2)
+                # points = [(0, baseline[1]), (300, 300*baseline[0] + baseline[1])]
+                print(points)
+                draw.line(points, fill="red", width=2)
+                # print(item['words'])
+                for word in line['words']:
+                    print(word)
+            orig_im.show()
+
+        clustered_data = cluster_lines_NN(array)
+
+        filename = os.path.splitext(os.path.basename(file))[0]
+        print(os.path.join(args.out, filename + ".txt"))
+
+        print(filename)
+
+        outfile = open(os.path.join(args.out, filename + ".json"), 'w')
+
+        # for cluster in clustered_data:
+        #     outfile.write(str(cluster))
+        outfile.write(json.dumps(clustered_data))
+
+        # outfile.write(str(clustered_data))
+
+        outfile.close()
 
         # clustered_data = cluster_lines_hierarchical(array)
         # for cluster in clustered_data:
@@ -206,8 +248,12 @@ def main():
         description="Parse hocr files and return entries")
     parser.add_argument("-in", help="Full-path directory containing hocr files",
                         dest="path", type=str, required=True)
+    parser.add_argument("-out", help="Full-path directory for output.",
+                        dest="out", type=str, required=True)
     parser.add_argument("-image", help="Image",
                         dest="image", type=str, required=False)
+    parser.add_argument("-type", help="Type of execution.",
+                        dest="type", type=str, required=False)
     # parser.add_argument("-build-image", help="Set whether to make images (True/False)",
     #                     dest="make_image", default="False", type=str, required=True)
     # parser.add_argument("-jpegs", help="Name of directory (not path) containing jpegs",

@@ -406,24 +406,24 @@ def process_image(args):
 
             width_diff = abs(width_median - col_widths[i])
 
-            crop_outliers = list(map((lambda rate: rate > 0.1), rates))
+            crop_outliers = list(map((lambda rate: rate > args.thresh), rates))
             crop_outliers[0] = False
             crop_outliers[2] = False
 
-            if width_diff / width_median > 0.1:
+            if width_diff / width_median > args.thresh:
                 print("Outlier in position: " + str(i))
 
                 # Checking right boundary against column on the right.
                 if i + 1 < len(columns):
                     next_col = columns[i+1]
-                    if abs(next_col[0] - col[3]) / next_col[0] > 0.1:
+                    if abs(next_col[0] - col[3]) / next_col[0] > args.thresh:
                         crop_outliers[3] = True
                         print("Outlier on right boundary")
 
                 # Checking left boundary against col on left.
                 if i > 0:
                     prev_col = columns[i-1]
-                    if abs(col[0] - prev_col[3]) / prev_col[3] > 0.1:
+                    if abs(col[0] - prev_col[3]) / prev_col[3] > args.thresh:
                         crop_outliers[0] = True
                         print("Outlier on left boundary")
 
@@ -572,13 +572,13 @@ def process_image(args):
         contours, hierarchy = cv2.findContours(
             edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        if args.type == "border":
-            print("Displaying contours")
-            # display_img = orig_im.copy()
-            img_copy = np.array(orig_im.copy())
-            cv2.drawContours(img_copy, contours, -1, (0, 255, 0), 3)
-            cv2.imshow("Contours", img_copy)
-            cv2.waitKey(0)
+        # if args.type == "border":
+        #     print("Displaying contours")
+        #     # display_img = orig_im.copy()
+        #     img_copy = np.array(orig_im.copy())
+        #     cv2.drawContours(img_copy, contours, -1, (0, 255, 0), 3)
+        #     cv2.imshow("Contours", img_copy)
+        #     cv2.waitKey(0)
 
         # Seems to find bounding boxes based on contours.
         borders = find_border_components(contours, edges)
@@ -681,15 +681,19 @@ def process_image(args):
         # Sort columns from left to right
         columns.sort(key=lambda col: col[0])
 
-        outliers = find_outliers(columns)
+        if args.correct:
 
-        try:
-            corrected_columns = correct_outliers(columns, outliers)
-        except TypeError:
-            print("Error in outlier detection. Too much variance.")
-            print("Review file: " + uncropped_jpeg_list[pg_count])
+            outliers = find_outliers(columns)
 
-        print(corrected_columns)
+            try:
+                corrected_columns = correct_outliers(columns, outliers)
+            except TypeError:
+                print("Error in outlier detection. Too much variance.")
+                print("Review file: " + uncropped_jpeg_list[pg_count])
+
+            print(corrected_columns)
+        else:
+            corrected_columns = columns
 
         # Drawing final columns.
         if args.type == "full" or args.type == "border":
@@ -766,6 +770,10 @@ def main():
                         dest="output", type=str, required=True)
     parser.add_argument("-n", help="Number of sampled boxes.",
                         dest="n", type=int, required=True, default=10)
+    parser.add_argument("-correct", help="Number of sampled boxes.",
+                        dest="correct", type=bool, required=False, default=False)
+    parser.add_argument("-threshold", help="Threshold for outlier detection.",
+                        dest="thresh", type=bool, required=False, default=0.1)
     parser.set_defaults(func=process_image)
     args = parser.parse_args()
     args.func(args)
