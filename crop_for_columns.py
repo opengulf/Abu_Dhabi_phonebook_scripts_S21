@@ -560,7 +560,7 @@ def process_image(args):
         img = cv2.erode(img, kernel, iterations=1)
 
         # Detect edge and plot
-        edges = cv2.Canny(img, 100, 400)
+        edges = cv2.Canny(img, 100, args.canny)
 
         if args.type == "full":
             plt.subplot(111), plt.imshow(edges, cmap='gray')
@@ -637,13 +637,13 @@ def process_image(args):
         for i in range(len(c_info)):
             c = c_info[i]
             # If height is bigger than width
-            if c['x2'] - c['x1'] > c['y2'] - c['y1']:
-                c_info_clean.remove(c)
-                print("Removing: " + str(c))
-            else:
-                center = ((c['x1'] + c['x2']) / 2)
-                print(str(center) + " -> " + str(c))
-                centers.append(center)
+            # if c['x2'] - c['x1'] > c['y2'] - c['y1']:
+            #     c_info_clean.remove(c)
+            #     print("Removing: " + str(c))
+            # else:
+            center = ((c['x1'] + c['x2']) / 2)
+            print(str(center) + " -> " + str(c))
+            centers.append(center)
 
         centers_np = np.array(centers)
         # print(centers_np)
@@ -687,11 +687,12 @@ def process_image(args):
 
             try:
                 corrected_columns = correct_outliers(columns, outliers)
+                print(corrected_columns)
             except TypeError:
                 print("Error in outlier detection. Too much variance.")
                 print("Review file: " + uncropped_jpeg_list[pg_count])
+                corrected_columns = columns
 
-            print(corrected_columns)
         else:
             corrected_columns = columns
 
@@ -773,7 +774,10 @@ def main():
     parser.add_argument("-correct", help="Number of sampled boxes.",
                         dest="correct", type=bool, required=False, default=False)
     parser.add_argument("-threshold", help="Threshold for outlier detection.",
-                        dest="thresh", type=bool, required=False, default=0.1)
+                        dest="thresh", type=float, required=False, default=0.1)
+
+    parser.add_argument("-canny", help="Threshold for Canny thresholding.",
+                        dest="canny", type=float, required=False, default=400)
     parser.set_defaults(func=process_image)
     args = parser.parse_args()
     args.func(args)
