@@ -544,10 +544,12 @@ def process_image(args):
                 # print(cropped_jpeg)
 
     pg_count = 0
+    total_pages = len(uncropped_jpeg_list)
 
     # For each image
     for uncropped_jpeg in uncropped_jpeg_list:
         print("Processing: " + uncropped_jpeg)
+        print(f"File {pg_count}/{total_pages}")
         print("-------------------------------")
 
         # Downscaling

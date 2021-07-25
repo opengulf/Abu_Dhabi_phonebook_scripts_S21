@@ -5,3 +5,4 @@ out/*
 *.png
 __pycache__
 directories/*
+canny.py
