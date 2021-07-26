@@ -431,11 +431,6 @@ def process_image(args):
                     crop_outliers[0] = True
                     crop_outliers[2] = True
 
-            # If difference is bigger than 10%
-            # if rate > 0.1:
-            #     outliers.append(True)
-            # else:
-            #     outliers.append(False)
             outliers.append(crop_outliers)
 
             print(rates)
@@ -470,12 +465,6 @@ def process_image(args):
                 data = [i, col[2]]
                 print(data)
                 right_data.append(data)
-
-        # left_data = [col for col, outlier in zip(
-        #     columns, outliers) if not outlier[0]]
-
-        # right_data = [col for col, outlier in zip(
-        #     columns, outliers) if not outlier[2]]
 
         m1, b1 = np.polyfit([i[0] for i in top_data], [i[1]
                             for i in top_data], 1)
@@ -574,14 +563,6 @@ def process_image(args):
         contours, hierarchy = cv2.findContours(
             edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        # if args.type == "border":
-        #     print("Displaying contours")
-        #     # display_img = orig_im.copy()
-        #     img_copy = np.array(orig_im.copy())
-        #     cv2.drawContours(img_copy, contours, -1, (0, 255, 0), 3)
-        #     cv2.imshow("Contours", img_copy)
-        #     cv2.waitKey(0)
-
         # Seems to find bounding boxes based on contours.
         borders = find_border_components(contours, edges)
         print(borders)
@@ -606,23 +587,6 @@ def process_image(args):
             #        print '%s -> (no text!)' % path
             return
 
-        # crop = find_optimal_components_subset(contours, edges)
-
-        # print("Optimal Crop: ")
-        # print(crop)
-
-        # crop = pad_crop(crop, contours, edges, border_contour)
-
-        # print("Pad Crop: ")
-        # print(crop)
-
-        # # upscale to the original image size.
-        # downsized_crop = crop
-
-        # crop = [int(x / scale) for x in crop]
-        # print("Upscaled Crop: ")
-        # print(crop)
-
         # Gets crops based on contours
         c_info = props_for_contours(contours, edges)
 
@@ -638,11 +602,6 @@ def process_image(args):
         # Getting x-axis midpoint to classify column.
         for i in range(len(c_info)):
             c = c_info[i]
-            # If height is bigger than width
-            # if c['x2'] - c['x1'] > c['y2'] - c['y1']:
-            #     c_info_clean.remove(c)
-            #     print("Removing: " + str(c))
-            # else:
             center = ((c['x1'] + c['x2']) / 2)
             print(str(center) + " -> " + str(c))
             centers.append(center)
@@ -674,11 +633,6 @@ def process_image(args):
                 columns[col] = this_crop
             else:
                 columns[col] = union_crops(columns[col], this_crop)
-
-        # draw.rectangle(downsized_crop, outline='red')
-    #   im.save(out_path + cropped_jpeg_list[pg_count])
-        # draw.text((50, 50), path, fill='red')
-    #   orig_im.save(out_path + cropped_jpeg_list[pg_count])
 
         # Sort columns from left to right
         columns.sort(key=lambda col: col[0])
@@ -714,52 +668,6 @@ def process_image(args):
                 i) + os.path.splitext(uncropped_jpeg_list[pg_count])[1])
 
         pg_count += 1
-
-        # w_original, h_original = orig_im.size
-        # w_original_half = w_original/2
-        # w_cropped, h_cropped = text_im.size
-        # if w_cropped < w_original_half:
-        #     text_im = orig_im
-        #     print(
-        #         "More than half the page was cropped width-wise. Defaulting to original uncropped image.")
-        # Converting to np array to calculate number of channels in jpg. Some directories are single channel jpgs
-
-        # open_cv_image = np.array(text_im)
-        # if open_cv_image.ndim == 2:
-        #     channels = 0
-        # else:
-        #     channels = open_cv_image.shape[2]
-        # print(channels)
-
-    #    try:
-        # print(type(text_im))
-    #    except:
-        # print("")
-    #    text_im.save(out_path + cropped_jpeg_list[pg_count])
-    #    print '%s -> %s' % (path, out_path)
-
-        # Deskew image
-
-        # direct_wo_saving = ""
-        # try:
-        #     direct_wo_saving = "Y"
-        #     # Convert RGB to BGR
-        #     if channels != 0:
-        #         open_cv_image = open_cv_image[:, :, ::-1].copy()
-        #     deskewed_image = deskew(im=open_cv_image,
-        #                             save_directory=out_path,
-        #                             direct=direct_wo_saving)
-        #     pg_count += 1
-        #     print("Pg " + str(pg_count) + " de-skew complete")
-        # except:
-        #     direct_wo_saving = "N"
-        #     text_im.save(out_path + cropped_jpeg_list[pg_count])
-        #     cropped_image = cv2.imread(out_path + cropped_jpeg_list[pg_count])
-        #     print("Cropped image saved to, and read from file")
-        #     deskewed_image = deskew(im=cropped_image,
-        #                             save_directory=out_path,
-        #                             direct=direct_wo_saving)
-        #     pg_count += 1
 
 
 def main():

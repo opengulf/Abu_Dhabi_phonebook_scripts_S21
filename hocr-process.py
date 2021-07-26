@@ -315,32 +315,10 @@ def cluster_lines_NN(lines, indent):
         entry = columns[0][i]
         number = columns[1][index[0]]
 
-        # cluster = {"words": []}
-        # cluster["words"].extend(entry["words"])
-        # cluster["words"].extend(number["words"])
-        # bbox = union_crops(entry["bbox"], number["bbox"])
-        # cluster["bbox"] = bbox
-
         cluster = join_lines(entry, number)
-
         clustered_lines.append(cluster)
 
-        # print(cluster)
-
-        # print(columns[1][index[0]])
-        # print(columns[0][i])
-        # print("--------------------------------")
-
     return clustered_lines
-
-#     X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]])
-# >>> nbrs = NearestNeighbors(n_neighbors=2, algorithm='ball_tree').fit(X)
-
-    # for col in columns:
-    #     print("---------------------------------------------------------------------")
-    #     for line in col:
-    #         print(line)
-
 
 def cluster_lines_hierarchical(lines):
 
@@ -368,13 +346,6 @@ def cluster_lines_hierarchical(lines):
         clustered_data[cluster_num].append(lines[i])
 
     return clustered_data
-
-    # # plotting
-    # plt.scatter(*np.transpose(data), c=clusters)
-    # plt.axis("equal")
-    # title = "threshold: %f, number of clusters: %d" % (thresh, len(set(clusters)))
-    # plt.title(title)
-    # plt.show()
 
 
 def dump_text(lines):
@@ -447,8 +418,6 @@ def process_hocr(args):
 
         print(filename)
 
-        # print(clustered_data)
-
         outfile = open(os.path.join(args.out, filename + ".json"), 'w')
         outfile.write(json.dumps(clustered_data))
         outfile.close()
@@ -456,26 +425,6 @@ def process_hocr(args):
         outfile = open(os.path.join(args.out, filename + ".txt"), 'w')
         outfile.write(dump_text(clustered_data))
         outfile.close()
-
-        # for cluster in clustered_data:
-        #     outfile.write(str(cluster))
-
-        # outfile.write(str(clustered_data))
-
-        # clustered_data = cluster_lines_hierarchical(array)
-        # for cluster in clustered_data:
-        #     if cluster is not None:
-        #         for item in cluster:
-        #             # print(item)
-        #             print(item['bbox'])
-        #             # print(item['words'])
-        #             for word in item['words']:
-        #                 print(word)
-        #     print("---------------------")
-
-        # print(array)
-        # print(raw)
-
 
 def main():
     parser = argparse.ArgumentParser(

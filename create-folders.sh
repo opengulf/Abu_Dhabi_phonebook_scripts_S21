@@ -3,3 +3,7 @@ mkdir $1/borders
 mkdir $1/crops
 mkdir $1/hocr
 mkdir $1/json
+mkdir $1/json
+mkdir $1/json-clustered
+mkdir $1/json-indented
+mkdir $1/json-nick
