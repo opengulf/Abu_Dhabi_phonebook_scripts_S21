@@ -1,5 +1,7 @@
 echo "JSON ------------------------------- \n"
 python3 hocr-process.py -in $1/hocr/ -out $1/json
+echo "JSON RAW------------------------------- \n"
+python3 hocr-process.py -in $1/hocr/ -out $1/json-raw -min-confidence 0
 echo "CLUSTER ------------------------------------------ \N"
 python3 hocr-process.py -in $1/hocr/ -out $1/json-clustered/ -type cluster
 echo "INDENT ------------------------------------------ \N"

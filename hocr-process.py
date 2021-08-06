@@ -5,6 +5,7 @@ import argparse
 import os
 import json
 import math
+import re
 
 import matplotlib.pyplot as plt
 import scipy.cluster.hierarchy as hcluster
@@ -320,6 +321,7 @@ def cluster_lines_NN(lines, indent):
 
     return clustered_lines
 
+
 def cluster_lines_hierarchical(lines):
 
     data = [[1, line['bbox'][1]] for line in lines]
@@ -348,13 +350,17 @@ def cluster_lines_hierarchical(lines):
     return clustered_data
 
 
-def dump_text(lines):
+def dump_text(lines, page_info):
     text = ""
+    year, page, side = page_info
+
     for line in lines:
         # print(line)
         for word in line["words"]:
             text += (word["string"] + " ").rstrip("\n")
             # print(word)
+
+        text += "###" + year + "###" + page + "-" + side
         text += ("\n")
 
     return text
@@ -412,19 +418,31 @@ def process_hocr(args):
 
         if args.type == "cluster" or args.type == "indent":
 
-            clustered_data = cluster_lines_NN(array, args.type == "indent")
+            try:
+                clustered_data = cluster_lines_NN(array, args.type == "indent")
+            except:
+                print("Failed clustering. Keeping original.")
 
         filename = os.path.splitext(os.path.basename(file))[0]
 
         print(filename)
+
+        regex = re.compile(r'([\d-]*)_(\d{3})_(\d)')
+
+        #  regex = re.compile(r'(\d{4})_(\d{3})_(\d)')
+
+        page_info = regex.findall(filename)
+        # print(page_info)
+        # year, page, side = info
 
         outfile = open(os.path.join(args.out, filename + ".json"), 'w')
         outfile.write(json.dumps(clustered_data))
         outfile.close()
 
         outfile = open(os.path.join(args.out, filename + ".txt"), 'w')
-        outfile.write(dump_text(clustered_data))
+        outfile.write(dump_text(clustered_data, page_info[0]))
         outfile.close()
+
 
 def main():
     parser = argparse.ArgumentParser(

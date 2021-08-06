@@ -26,6 +26,7 @@ This takes single-page directory scans from the Abu Dhabi Calling! project colle
 ├── crops
 ├── hocr
 ├── json
+├── json-raw
 ├── json-clustered
 ├── json-indented
 └── json-nick
@@ -52,7 +53,7 @@ These are the arguments:
 
 ### Tesseract
 
-4. Run all extracted columns through Tesseract to get the hocr files. Use ```batch-tess.sh <out-dir>/crops/ <out-dir>/hocr/```. This script uses page segmentation method 11.
+4. Run all extracted columns through Tesseract to get the hocr files. Use ```./batch-tess.sh <out-dir>/crops/ <out-dir>/hocr/```. This script uses page segmentation method 11.
 
 ### Post-Processing
 
